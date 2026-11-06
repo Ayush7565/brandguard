@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Brand knowledge base{% endblock %}
+
+{% macro form(kind, item=None) %}
+<form method="post" action="{{ url_for('kb_save') }}" class="stack">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="kind" value="{{ kind }}">
+  {% if item %}<input type="hidden" name="id" value="{{ item.id }}">{% endif %}
+  {% set p = 'k' ~ kind ~ (item.id if item else 'new') %}
+  <label for="{{ p }}t">{{ {'guideline':'Title','fact':'Fact name','term':'Preferred term','claim':'Approved claim wording','asset':'Colour name'}[kind] }}</label>
+  <input id="{{ p }}t" type="text" name="title" value="{{ item.title if item else '' }}" required maxlength="200">
+  {% if kind == 'guideline' %}
+    <label for="{{ p }}o">Topic</label>
+    <select id="{{ p }}o" name="topic">{% for t in topics %}<option value="{{ t }}" {% if item and item.topic == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+  {% elif kind == 'fact' %}
+    <label for="{{ p }}k">Trigger keywords (comma separated)</label>
+    <input id="{{ p }}k" type="text" name="keywords" value="{{ item.keywords if item else '' }}">
+    <label for="{{ p }}v">Approved value, e.g. "32 countries" or "2018"</label>
+    <input id="{{ p }}v" type="text" name="value" value="{{ item.value if item else '' }}">
+  {% elif kind == 'term' %}
+    <label for="{{ p }}n">Not allowed (comma separated)</label>
+    <input id="{{ p }}n" type="text" name="banned" value="{{ item.banned if item else '' }}">
+  {% endif %}
+  <label for="{{ p }}b">{{ {'guideline':'Guideline text','fact':'Approved statement (shown as the source)','term':'Explanation (shown as the source)','claim':'Where it is approved','asset':'Colour value, e.g. #1F6F5B'}[kind] }}</label>
+  {% if kind in ('claim', 'asset') %}<input id="{{ p }}b" type="text" name="body" value="{{ item.body if item else '' }}">
+  {% else %}<textarea id="{{ p }}b" name="body">{{ item.body if item else '' }}</textarea>{% endif %}
+  <button type="submit" class="secondary">{{ 'Save changes' if item else 'Add' }}</button>
+</form>
+{% endmacro %}
+
+{% block content %}
+<h1>Brand knowledge base</h1>
+<p class="muted">Everything the review engine may cite. Findings are only as good as these approved sources.
+{% if not is_admin %}You can read them here; only an admin can change them.{% endif %}</p>
+
+{% if is_admin %}
+<section class="card stack" aria-labelledby="imp-h">
+  <h2 id="imp-h">Import a guideline from a file</h2>
+  <form method="post" action="{{ url_for('kb_import') }}" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label for="ifile">Text or Markdown file (.txt, .md)</label><input id="ifile" type="file" name="file" accept=".txt,.md" required>
+    <label for="ititle">Title (optional)</label><input id="ititle" type="text" name="title">
+    <label for="itopic">Topic</label><select id="itopic" name="topic">{% for t in topics %}<option>{{ t }}</option>{% endfor %}</select>
+    <button type="submit" class="secondary">Import</button>
+  </form>
+</section>
+{% endif %}
+
+{% for kind, label in kinds.items() %}
+<section class="kind-block" aria-labelledby="h-{{ kind }}">
+  <h2 id="h-{{ kind }}">{{ label }} ({{ groups.get(kind, [])|length }})</h2>
+  {% for item in groups.get(kind, []) %}
+  <div class="card">
+    <strong>{{ item.title }}</strong>
+    {% if kind == 'guideline' %}<span class="badge">{{ item.topic }}</span><p>{{ item.body }}</p>
+    {% elif kind == 'fact' %}<p>{{ item.body }} <span class="muted tiny">Approved value: {{ item.value }} · triggers: {{ item.keywords }}</span></p>
+    {% elif kind == 'term' %}<p>Not allowed: <em>{{ item.banned }}</em><br><span class="muted tiny">{{ item.body }}</span></p>
+    {% else %}<p>{{ item.body }}</p>{% endif %}
+    {% if is_admin %}
+    <details><summary>Edit</summary>{{ form(kind, item) }}</details>
+    <form method="post" action="{{ url_for('kb_delete', iid=item.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="danger" type="submit">Delete</button></form>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if is_admin %}<details class="card"><summary>Add to {{ label|lower }}</summary>{{ form(kind) }}</details>{% endif %}
+</section>
+{% endfor %}
+{% endblock %}

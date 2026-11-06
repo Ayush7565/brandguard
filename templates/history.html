@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}History: {{ sub.title }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('submission', sid=sub.id) }}">&larr; Back to the submission</a></p>
+<h1>History: {{ sub.title }}</h1>
+<section class="card" aria-labelledby="ver-h">
+  <h2 id="ver-h">Versions and tracked changes</h2>
+  {% for it in items %}
+  <div class="stack" style="margin-bottom:1rem">
+    <h3>v{{ it.v.number }} <span class="muted tiny">by {{ it.v.name }} · {{ it.v.created_at }} UTC · {{ it.v.note }}</span></h3>
+    {% if it.diff %}
+      <p class="tiny muted">Changes since v{{ it.v.number - 1 }}: <del>removed</del> <ins>added</ins></p>
+      <div class="hist-diff">{{ it.diff }}</div>
+    {% else %}<div class="hist-diff">{{ it.v.text }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+<section class="card" aria-labelledby="aud-h">
+  <h2 id="aud-h">Audit trail</h2>
+  <table>
+    <thead><tr><th>When (UTC)</th><th>Who</th><th>What</th><th>Detail</th></tr></thead>
+    <tbody>{% for e in events %}<tr><td class="tiny">{{ e.ts }}</td><td>{{ e.name or 'system' }}</td><td>{{ e.action|replace('_', ' ') }}</td><td>{{ e.detail }}</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+{% endblock %}

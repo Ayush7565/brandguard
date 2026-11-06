@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}About & AI use{% endblock %}
+{% block content %}
+<h1>About BrandGuard and how AI is used</h1>
+<section class="card">
+  <h2>What it does</h2>
+  <p>BrandGuard reviews content <strong>before</strong> it is published. It compares the text with the organisation's approved guidelines, facts, terminology, claims and palette, explains every issue, shows the source it relied on, and suggests a fix that only replaces the flagged words. Creators accept, edit or dispute each suggestion. Managers and reviewers make the final decision.</p>
+</section>
+<section class="card">
+  <h2>Disclosure of AI and external services</h2>
+  <ul>
+    <li><strong>Rule-based checks</strong> (always on, no AI): terminology, promotional claims, approved facts, palette, accessibility and basic tone rules.</li>
+    <li><strong>AI layer</strong> (optional): the Claude API by Anthropic, model <code>{{ model }}</code>, looks for tone, messaging, fact and claim issues using only the approved passages it is given.
+      {% if ai_enabled %}<strong>It is enabled in this deployment.</strong>{% else %}<strong>It is not enabled in this deployment</strong>, so only rule-based checks run.{% endif %}</li>
+    <li><strong>What is sent:</strong> the submitted text, the creator's stated goal, the channel and the relevant approved passages. Email addresses and phone numbers are replaced with placeholders before sending. Nothing is sent when the AI layer is off.</li>
+    <li><strong>No findings without proof:</strong> an AI finding must quote an approved source. The quote is checked in code. If it cannot be verified, the finding is labelled "Needs human judgment" and given low confidence.</li>
+    <li><strong>Human control:</strong> nothing is applied or approved automatically.</li>
+    <li><strong>Cost and abuse protection:</strong> AI use is rate limited per user and per day.</li>
+  </ul>
+</section>
+<section class="card">
+  <h2>Known limitations (prototype)</h2>
+  <ul>
+    <li>Text review only in this version. Image and document review, an insights dashboard and guideline-gap detection are planned for Round 3.</li>
+    <li>Demo data is a fictional brand, and the demo database may reset when the server restarts. Do not enter real confidential material.</li>
+    <li>Rule-based fact checking looks for numbers near trigger keywords, so unusual phrasing can be missed. Reviewers should still read the content.</li>
+    <li>AI findings can be wrong. That is why they always need a person to accept them.</li>
+  </ul>
+</section>
+{% endblock %}

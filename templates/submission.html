@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ sub.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ sub.title }}</h1>
+    <p class="muted">{{ channels[sub.channel] }} · by {{ sub.creator_name }} · <span class="badge st-{{ sub.status }}">{{ status_label[sub.status] }}</span></p>
+    {% if sub.intent %}<p><strong>Creator's goal:</strong> {{ sub.intent }}</p>{% endif %}
+  </div>
+  <nav class="versions" aria-label="Versions">
+    Version:
+    {% for v in versions %}<a href="{{ url_for('submission', sid=sub.id, v=v.number) }}" {% if v.number == vnum %}class="current" aria-current="page"{% endif %}>v{{ v.number }}</a>{% endfor %}
+    · <a href="{{ url_for('history', sid=sub.id) }}">History &amp; audit trail</a>
+  </nav>
+</div>
+
+{% if sub.status in ('approved', 'rejected', 'changes_requested') %}
+<section class="card decision" aria-label="Decision">
+  <h2>{{ status_label[sub.status] }}</h2>
+  {% if sub.decision_note %}<p>{{ sub.decision_note }}</p>{% endif %}
+</section>
+{% endif %}
+{% if not is_current %}<div class="flash error" role="status">You are viewing an older version (v{{ vnum }}). It is read-only. <a href="{{ url_for('submission', sid=sub.id) }}">Go to the current version</a>.</div>{% endif %}
+
+<div class="grid">
+  <section aria-labelledby="content-h">
+    <div class="card">
+      <h2 id="content-h">Content (v{{ vnum }})</h2>
+      <div class="content-box">{{ content_html }}</div>
+      <div class="stats" aria-label="Statistics">
+        <div><b>{{ stats.get('words', 0) }}</b>words</div>
+        <div><b>{{ stats.get('grade', 0) }}</b>reading grade</div>
+        <div><b>{{ findings|length }}</b>findings</div>
+        <div><b>{{ c.open }}</b>open</div>
+      </div>
+      {% if review %}
+      <p class="tiny muted">
+        Rule-based checks: always on.
+        AI layer:
+        {% if review.ai_status == 'used' %}used (Claude API; emails and phone numbers redacted before sending){% elif review.ai_status == 'not configured' %}not configured for this deployment, so only rule-based checks ran{% else %}{{ review.ai_status }}{% endif %}.
+        Checked {{ review.created_at }} UTC. Highlighted text is clickable.
+      </p>
+      {% endif %}
+    </div>
+
+    {% if can_edit %}
+    <div class="card stack" aria-labelledby="act-h">
+      <h2 id="act-h">Your next steps</h2>
+      <p class="muted">Nothing changes until you choose it. Accept, edit or dispute each finding, then apply your choices as a new version.</p>
+      <form method="post" action="{{ url_for('apply_changes', sid=sub.id) }}" class="row">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" {% if not applyable %}disabled{% endif %}>Apply {{ applyable }} chosen change(s) as a new version</button>
+      </form>
+      <form method="post" action="{{ url_for('rerun', sid=sub.id) }}" class="row">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="secondary">Re-run review</button>
+        <span class="tiny muted">Use after the knowledge base changes. Your earlier responses are kept.</span>
+      </form>
+      <form method="post" action="{{ url_for('submit_for_review', sid=sub.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" {% if not can_submit %}disabled{% endif %}>Submit for approval</button>
+        {% if not can_submit %}<span class="tiny" style="color:var(--high)">Respond to {{ c.high_open }} high-severity finding(s) first (accept, edit or dispute with a reason).</span>{% endif %}
+      </form>
+    </div>
+    {% endif %}
+
+    {% if can_decide %}
+    <div class="card decision stack" id="decision" aria-labelledby="dec-h">
+      <h2 id="dec-h">Your decision</h2>
+      <p>{{ c.accepted + c.edited }} finding(s) fixed by the creator, <strong>{{ c.disputed }} disputed</strong>, {{ c.open }} still open. Check disputed items below before deciding.</p>
+      <form method="post" action="{{ url_for('decide', sid=sub.id) }}" class="stack">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <label for="note">Note to the creator <span class="muted">(required unless approving)</span></label>
+        <textarea id="note" name="note" maxlength="1000"></textarea>
+        <div class="row">
+          <button name="decision" value="approve" type="submit">Approve</button>
+          <button name="decision" value="changes" type="submit" class="secondary">Request changes</button>
+          <button name="decision" value="reject" type="submit" class="danger">Reject</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </section>
+
+  <section aria-labelledby="find-h">
+    <h2 id="find-h">Findings ({{ findings|length }})</h2>
+    {% if not findings %}<div class="card"><p>No issues found. This content matches the approved guidelines, facts, terms and palette.</p></div>{% endif %}
+    {% for f in findings %}
+    <article class="finding sev-{{ f.severity }} st-{{ f.status }}" id="finding-{{ f.id }}">
+      <header>
+        <span class="badge">{{ f.category }}</span>
+        <span class="badge">{{ f.severity }} severity</span>
+        {% if f.source_kind %}<span class="badge">{{ (f.confidence * 100)|round|int }}% confidence</span>{% else %}<span class="badge warn">Needs human judgment</span>{% endif %}
+        {% if f.detected_by == 'ai' %}<span class="badge ai">AI-suggested</span>{% endif %}
+        <a class="tiny" href="#hl-{{ f.id }}">Show in text</a>
+      </header>
+      <p><code>{{ f.excerpt|truncate(110) }}</code></p>
+      <p>{{ f.explanation }}</p>
+      {% if f.source_kind %}
+        <blockquote class="source"><strong>Source: {{ f.source_label }}</strong><br>&ldquo;{{ f.source_quote }}&rdquo;</blockquote>
+      {% else %}
+        <p class="tiny muted">No approved source covers this. Treat it as a suggestion to judge yourself, not a rule violation.</p>
+      {% endif %}
+      {% if f.suggestion is not none %}
+        <p class="suggest"><strong>Suggested fix:</strong> <del>{{ f.excerpt|truncate(60) }}</del> <ins>{{ f.suggestion if f.suggestion else '(remove)' }}</ins></p>
+      {% endif %}
+      {% if f.advice %}<p class="advice"><strong>How to fix:</strong> {{ f.advice }}</p>{% endif %}
+
+      {% if f.status == 'accepted' %}<p class="statusline"><strong>Accepted</strong>{% if f.suggestion is none %} (acknowledged){% endif %}</p>
+      {% elif f.status == 'edited' %}<p class="statusline"><strong>Edited:</strong> &ldquo;{{ f.edited_text if f.edited_text else '(removed)' }}&rdquo;</p>
+      {% elif f.status == 'disputed' %}<p class="statusline"><strong>Disputed by creator:</strong> {{ f.dispute_reason }}</p>{% endif %}
+
+      {% if can_edit %}
+        <div class="row">
+          {% if f.status != 'accepted' %}
+          <form method="post" action="{{ url_for('respond', fid=f.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button name="action" value="accept" type="submit">{{ 'Accept fix' if f.suggestion is not none else 'Acknowledge' }}</button></form>
+          {% endif %}
+          {% if f.status != 'open' %}
+          <form method="post" action="{{ url_for('respond', fid=f.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button name="action" value="reopen" type="submit" class="secondary">Reopen</button></form>
+          {% endif %}
+        </div>
+        <details><summary>Edit it my way</summary>
+          <form method="post" action="{{ url_for('respond', fid=f.id) }}" class="stack"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <label for="t{{ f.id }}">Replace the highlighted text with</label>
+            <input id="t{{ f.id }}" type="text" name="text" value="{{ f.edited_text if f.edited_text is not none else (f.suggestion if f.suggestion is not none else f.excerpt) }}">
+            <button name="action" value="edit" type="submit" class="secondary">Save my version</button>
+          </form></details>
+        <details><summary>Dispute this finding</summary>
+          <form method="post" action="{{ url_for('respond', fid=f.id) }}" class="stack"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <label for="r{{ f.id }}">Why do you disagree?</label>
+            <textarea id="r{{ f.id }}" name="reason" maxlength="500">{{ f.dispute_reason or '' }}</textarea>
+            <button name="action" value="dispute" type="submit" class="secondary">Dispute</button>
+          </form></details>
+      {% endif %}
+    </article>
+    {% endfor %}
+
+    <div class="card" id="comments" aria-labelledby="com-h">
+      <h2 id="com-h">Comments</h2>
+      {% for m in comments %}
+      <div class="comment"><strong>{{ m.name }}</strong> <span class="badge">{{ m.role }}</span> <span class="tiny muted">{{ m.created_at }} UTC</span>
+        {% if m.excerpt %}<br><span class="tiny muted">On: <code>{{ m.excerpt|truncate(50) }}</code></span>{% endif %}
+        <p style="margin:.2rem 0">{{ m.body }}</p></div>
+      {% else %}<p class="muted">No comments yet.</p>{% endfor %}
+      <form method="post" action="{{ url_for('comment', sid=sub.id) }}" class="stack">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <label for="body">Add a comment</label>
+        <textarea id="body" name="body" maxlength="2000"></textarea>
+        {% if findings %}
+        <label for="finding_id">About a specific finding (optional)</label>
+        <select id="finding_id" name="finding_id"><option value="">Whole submission</option>
+          {% for f in findings %}<option value="{{ f.id }}">{{ f.category }}: {{ f.excerpt|truncate(40) }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <button type="submit" class="secondary">Post comment</button>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

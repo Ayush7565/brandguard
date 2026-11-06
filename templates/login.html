@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="grid">
+  <section class="card" aria-labelledby="demo-h">
+    <h1 id="demo-h">BrandGuard</h1>
+    <p>Content goes in, it is checked against your <strong>approved</strong> guidelines, facts, terms and assets, every issue is explained with its source, and a <strong>person</strong> makes the final decision.</p>
+    {% if demo %}
+    <h2>Try it in one click</h2>
+    <p class="muted">Demo brand: <strong>Lumora</strong> (fictional). Pick a role:</p>
+    <div class="demo-btns">
+      {% for u in demo %}
+      <form method="post" action="{{ url_for('demo_login', role=u.role) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit">{{ u.role|capitalize }}<small>{{ {'creator':'Submit content, respond to findings','manager':'Approve or request changes','reviewer':'Review disputed findings','admin':'Manage guidelines, facts and assets'}[u.role] }}</small></button></form>
+      {% endfor %}
+    </div>
+    <p class="tiny muted">Suggested path: log in as Creator, open a draft, respond to findings, apply changes, submit. Then log in as Manager and approve.</p>
+    {% endif %}
+  </section>
+  <section class="card" aria-labelledby="login-h">
+    <h2 id="login-h">Log in with email</h2>
+    <form method="post" class="stack">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label for="email">Email</label><input id="email" name="email" type="email" required autocomplete="username">
+      <label for="password">Password</label><input id="password" name="password" type="password" required autocomplete="current-password">
+      <p><button type="submit">Log in</button></p>
+    </form>
+    {% if demo %}<p class="tiny muted">Demo accounts: creator@, manager@, reviewer@, admin@lumora.demo, password <code>{{ demo_password }}</code></p>{% endif %}
+  </section>
+</div>
+{% endblock %}

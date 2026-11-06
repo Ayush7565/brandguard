@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}New submission{% endblock %}
+{% block content %}
+<h1>New submission</h1>
+<p class="muted">Paste your draft. It is checked against the approved brand knowledge base before anyone publishes it.</p>
+<section class="card" aria-label="Load an example">
+  <strong>Try an example:</strong>
+  <div class="row" style="margin-top:.4rem">
+    <button type="button" class="secondary" data-sample="social">Social post with many problems</button>
+    <button type="button" class="secondary" data-sample="press">Press release with outdated facts</button>
+    <button type="button" class="secondary" data-sample="clean">Clean newsletter</button>
+  </div>
+</section>
+<form method="post" class="card stack" id="subform">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <label for="title">Title</label><input id="title" name="title" type="text" maxlength="120" required>
+  <label for="channel">Channel</label>
+  <select id="channel" name="channel">{% for k, v in channels.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select>
+  <label for="intent">What do you want this content to achieve? <span class="muted">(suggestions will keep this goal)</span></label>
+  <input id="intent" name="intent" type="text" maxlength="300">
+  <label for="text">Content <span class="muted">(plain text or Markdown; images as ![alt](url))</span></label>
+  <textarea id="text" name="text" class="big" required></textarea>
+  <p><button type="submit">Check against brand guidelines</button></p>
+</form>
+<script>
+const SAMPLES = {{ samples|tojson }};
+document.querySelectorAll('[data-sample]').forEach(b => b.addEventListener('click', () => {
+  const s = SAMPLES[b.dataset.sample];
+  for (const k of ['title','channel','intent','text']) document.getElementById(k).value = s[k];
+}));
+</script>
+{% endblock %}

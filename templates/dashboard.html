@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Dashboard</h1><p class="muted">{% if g.user.role == 'creator' %}Your submissions{% else %}All submissions{% endif %}</p></div>
+  {% if g.user.role == 'creator' %}<div><a class="btn" href="{{ url_for('new_submission') }}">New submission</a></div>{% endif %}
+</div>
+{% if awaiting %}
+<section class="card decision" aria-labelledby="await-h">
+  <h2 id="await-h">Waiting for your decision ({{ awaiting|length }})</h2>
+  <ul>{% for r in awaiting %}<li><a href="{{ url_for('submission', sid=r.id) }}">{{ r.title }}</a> by {{ r.creator_name }} ({{ r.c.disputed }} disputed, {{ r.c.open }} still open)</li>{% endfor %}</ul>
+</section>
+{% endif %}
+<section class="card" aria-label="Submissions">
+{% if rows %}
+<table>
+  <thead><tr><th>Title</th><th>Channel</th><th>Status</th><th>Version</th><th>Findings</th><th>Updated</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td><a href="{{ url_for('submission', sid=r.id) }}">{{ r.title }}</a>{% if g.user.role != 'creator' %}<br><span class="tiny muted">{{ r.creator_name }}</span>{% endif %}</td>
+    <td>{{ channels[r.channel] }}</td>
+    <td><span class="badge st-{{ r.status }}">{{ status_label[r.status] }}</span></td>
+    <td>v{{ r.current_version }}</td>
+    <td>{{ r.c.total }} total · {{ r.c.open }} open{% if r.c.high_open %} · <strong>{{ r.c.high_open }} high</strong>{% endif %}</td>
+    <td class="tiny">{{ r.updated_at }} UTC</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p>No submissions yet.{% if g.user.role == 'creator' %} <a href="{{ url_for('new_submission') }}">Create the first one.</a>{% endif %}</p>{% endif %}
+</section>
+{% endblock %}

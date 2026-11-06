@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: brandguard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 60
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEMO_MODE
+        value: "1"
+      - key: ANTHROPIC_API_KEY
+        sync: false   # paste your key in the Render dashboard, never in the repo
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5-5
+      - key: AI_USER_HOURLY_LIMIT
+        value: "10"
+      - key: AI_DAILY_LIMIT
+        value: "200"
